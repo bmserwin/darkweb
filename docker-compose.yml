@@ -1,0 +1,84 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: forensic-backend
+    ports:
+      - "8000:8000"
+    environment:
+      FORENSIC_ENVIRONMENT: docker
+      FORENSIC_MOCK_ONION_BASE_URL: http://mock-onion:8080
+      FORENSIC_MOCK_CLEARNET_BASE_URL: http://mock-clearnet:8081
+      FORENSIC_ALLOW_NETWORK_PROBES: "true"
+    volumes:
+      - ./backend/data:/app/data
+    depends_on:
+      - mock-onion
+      - mock-clearnet
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health', timeout=3).status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  mock-onion:
+    build:
+      context: ./simulation
+      dockerfile: Dockerfile.simulation
+    container_name: forensic-mock-onion
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    environment:
+      MOCK_ONION_DOMAIN: vmijjgu6ydy75cxmbj5p2ey42d7wsab6u4plz5m2kza3xkgqbnrsfktj.onion
+      MOCK_ONION_INTERNAL_IP: 10.13.37.41
+    command: ["uvicorn", "mock_onion_server:app", "--host", "0.0.0.0", "--port", "8080"]
+    volumes:
+      - ./simulation/certs:/app/certs:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/healthz', timeout=3).status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  mock-clearnet:
+    build:
+      context: ./simulation
+      dockerfile: Dockerfile.simulation
+    container_name: forensic-mock-clearnet
+    ports:
+      - "8081:8081"
+      - "9443:9443"
+    environment:
+      MOCK_SERVER_BANNER: Apache/2.4.41 (Ubuntu) OpenSSL/3.0.2
+      MOCK_HIDDEN_SERVICE_IP: 10.13.37.41
+      MOCK_HIDDEN_SERVICE_VHOST: hs2.northgate-hosting.example
+    command: ["uvicorn", "mock_clearnet_server:app", "--host", "0.0.0.0", "--port", "8081"]
+    volumes:
+      - ./simulation/certs:/app/certs:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8081/healthz', timeout=3).status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: forensic-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000/api
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  forensic-data:

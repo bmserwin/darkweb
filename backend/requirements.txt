@@ -1,0 +1,11 @@
+fastapi==0.141.1
+uvicorn[standard]==0.54.0
+pydantic==2.13.5
+pydantic-settings==2.15.0
+SQLAlchemy==2.1.1
+networkx==3.7
+requests==2.34.2
+httpx==0.28.1
+cryptography==50.0.1
+reportlab==5.0.1
+python-multipart==0.0.20

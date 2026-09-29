@@ -1,0 +1,34 @@
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir \
+    fastapi==0.141.1 \
+    "uvicorn[standard]==0.54.0" \
+    cryptography==50.0.1
+
+COPY mock_onion_server.py mock_clearnet_server.py generate_certs.py ./
+COPY certs ./certs
+
+EXPOSE 8080 8081 8443 9443
+
+# Regenerate the material so a clean checkout with no ./certs still works.
+# generate_certs imports cryptography, so the pin above is required.
+RUN python -c "import generate_certs; generate_certs.generate()"
+
+# The private keys are only ever read by the uvicorn TLS listener, which drops
+# privileges it does not need. Compose bind-mounts ./simulation/certs over
+# /app/certs read-only, so these defaults and the mount agree on one path.
+RUN chmod 0444 /app/certs/*.key /app/certs/*.crt
+
+# Serves plain HTTP and HTTPS together. Override `command:` per service to
+# choose which app (mock_onion_server / mock_clearnet_server) backs the ports.
+CMD ["python", "mock_onion_server.py"]

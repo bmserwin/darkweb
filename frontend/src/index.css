@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+@keyframes flash-red {
+  0%, 100% { background-color: rgb(127 29 29 / 0.9); }
+  50% { background-color: rgb(220 38 38 / 0.9); }
+}
+
+.animate-flash-red {
+  animation: flash-red 1s ease-in-out infinite;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
