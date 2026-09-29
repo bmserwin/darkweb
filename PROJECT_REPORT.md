@@ -198,7 +198,7 @@ examiner before any evidentiary use.
 
 | Item | Detail |
 |---|---|
-| **Render deployment blocked** | The API accepts the payload but returns *"Payment information is required"* — the `Hrje's workspace` account needs a card on file before any service (even free tier) can be created. All other groundwork is done. |
+| **Render deployment ready** | Full enablement kit in `render/` (one-command deploy script + runtime cert issuer). Creation is blocked only by workspace billing: Render requires a card on file even for free services (see `render/README.md`). |
 | SQLite at scale | Fine for a case-sized store; swap to Postgres for multi-analyst concurrency. |
 | Circadian estimate | Probabilistic (verdict + confidence), not a legal claim of location. |
 | Stylometry corpus | Needs ≥ a few hundred words per side for a meaningful Delta. |

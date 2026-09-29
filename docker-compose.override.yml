@@ -1,15 +1,19 @@
-# Local-only compose overrides. Not committed: adjust to your host.
-# 1. Host port 18080 replaces 8080 for the mock onion because something else
-#    already listens on 8080 on this machine. The container port is unchanged,
-#    so the backend's internal URL (http://mock-onion:8080) is unaffected.
-# 2. The network alias lets the infra prober resolve the simulated .onion
-#    hostname inside the compose network, so a TLS probe dials the right
-#    container with matching SNI + certificate name.
+# Committed convenience overrides for running the stack on a developer host.
+# The base docker-compose.yml is already PaaS-ready; this file only smooths
+# local quirks. Everything here is optional.
+#
+# 1. Host port 18080 replaces 8080 for the mock onion, because 8080 is a very
+#    commonly occupied port. The container port is unchanged, so the backend's
+#    internal URL (http://mock-onion:8080) is unaffected.
+# 2. The network aliases let the infra prober resolve the simulated hostnames
+#    inside the compose network, so a TLS probe dials the right container with
+#    matching SNI + certificate name.
+#
+# The base compose file already:
+#   * runs both mocks via their module entrypoints (HTTP + TLS listeners),
+#   * mounts ./simulation/certs into the backend at /app/certs.
 services:
   mock-onion:
-    # Run the module entrypoint so BOTH listeners come up (HTTP 8080 + TLS
-    # 8443). The base file's uvicorn command serves plain HTTP only.
-    command: ["python", "mock_onion_server.py"]
     ports: !override
       - "18080:8080"
       - "8443:8443"
@@ -18,13 +22,7 @@ services:
         aliases:
           - vmijjgu6ydy75cxmbj5p2ey42d7wsab6u4plz5m2kza3xkgqbnrsfktj.onion
 
-  backend:
-    volumes:
-      - ./backend/data:/app/data
-      - ./simulation/certs:/app/certs:ro
-
   mock-clearnet:
-    command: ["python", "mock_clearnet_server.py"]
     networks:
       default:
         aliases:

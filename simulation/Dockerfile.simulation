@@ -15,20 +15,26 @@ RUN pip install --no-cache-dir \
     "uvicorn[standard]==0.54.0" \
     cryptography==50.0.1
 
-COPY mock_onion_server.py mock_clearnet_server.py generate_certs.py ./
+COPY mock_onion_server.py mock_clearnet_server.py generate_certs.py render_entrypoint.py cert_issuer.py ./
 COPY certs ./certs
 
 EXPOSE 8080 8081 8443 9443
 
-# Regenerate the material so a clean checkout with no ./certs still works.
-# generate_certs imports cryptography, so the pin above is required.
-RUN python -c "import generate_certs; generate_certs.generate()"
+# NOTE: the fixture material committed in ./certs is used as-is. An earlier
+# version regenerated it at build time, which silently produced a different
+# CA per image; the backend trusts only the committed shared.crt, so on PaaS
+# (no bind-mounts to reconcile the two) TLS verification would never pass.
+# generate_certs.py remains for regenerating fixtures deliberately.
 
 # The private keys are only ever read by the uvicorn TLS listener, which drops
 # privileges it does not need. Compose bind-mounts ./simulation/certs over
 # /app/certs read-only, so these defaults and the mount agree on one path.
 RUN chmod 0444 /app/certs/*.key /app/certs/*.crt
 
-# Serves plain HTTP and HTTPS together. Override `command:` per service to
-# choose which app (mock_onion_server / mock_clearnet_server) backs the ports.
-CMD ["python", "mock_onion_server.py"]
+# Serves plain HTTP and HTTPS together.
+#
+# Default CMD is the Render entrypoint: MOCK_ROLE picks the app and $PORT is
+# bound for the platform router. docker-compose overrides `command:` to run
+# the module entrypoints directly, so local behaviour is unchanged.
+ENV MOCK_ROLE=onion
+CMD ["python", "render_entrypoint.py"]

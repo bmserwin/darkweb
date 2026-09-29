@@ -31,3 +31,4 @@ Thumbs.db
 *.log
 dist/
 build/
+runtime-test certs/*.key

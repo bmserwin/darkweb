@@ -14,6 +14,9 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 COPY app ./app
+# Fixture trust anchor for the infra prober. Only the CA cert is baked in;
+# private keys live solely with the mock services that need them.
+COPY certs/shared.crt /app/certs/shared.crt
 RUN mkdir -p /app/data
 
 EXPOSE 8000
