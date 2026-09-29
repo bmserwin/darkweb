@@ -1,0 +1,58 @@
+# Single-container build: the entire platform in one image for free-tier PaaS
+# deployment (Render free plan = one web service). Multi-container mode via
+# docker-compose remains available for development.
+#
+#   * backend + embedded testbeds (TLS on loopback) + static dashboard
+#   * one process, one port ($PORT), one free instance
+#
+# Image layout (env vars tell serve_single.py where things live):
+#   /app/app                    FastAPI application package
+#   /app/simulation/            mock servers + fixture PKI (certs included)
+#   /app/frontend/dist/         built dashboard bundle
+#   /app/serve_single.py        single-process entrypoint
+
+# --- Stage 1: build the dashboard -------------------------------------------
+FROM node:22-alpine AS dashboard
+
+WORKDIR /app
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+COPY frontend/ .
+RUN npm run build
+
+# --- Stage 2: assemble the runtime image ------------------------------------
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    SIMULATION_DIR=/app/simulation \
+    DASHBOARD_DIST=/app/frontend/dist
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY backend/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Application code, embedded testbeds and the fixture PKI. In this
+# single-trust-boundary image the testbed leaf keys ship too: they are only
+# ever read by the loopback TLS listeners inside the same container.
+COPY backend/app ./app
+COPY backend/serve_single.py ./serve_single.py
+COPY simulation/mock_onion_server.py simulation/mock_clearnet_server.py simulation/cert_issuer.py ./simulation/
+COPY simulation/certs ./simulation/certs
+
+# Built dashboard from stage 1.
+COPY --from=dashboard /app/dist ./frontend/dist
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl -fsS http://localhost:${PORT:-8000}/api/health || exit 1
+
+# Render injects $PORT; default to 8000 for plain docker run.
+CMD ["sh", "-c", "exec python serve_single.py"]

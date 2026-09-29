@@ -52,9 +52,25 @@ frontend/    React 18 + Vite + Tailwind v4 investigator dashboard with a
 docker compose up --build
 # backend    http://localhost:8000/api  (docs at /docs)
 # frontend   http://localhost:5173
-# mock onion http://localhost:8080 (HTTP) / 8443 (TLS)
+# mock onion http://localhost:18080 (HTTP) / 8443 (TLS)
 # mock host  http://localhost:8081 (HTTP) / 9443 (TLS)
 ```
+
+### Single-container mode (free-tier PaaS)
+
+The whole platform also runs as **one process on one port** — backend, both
+testbeds (TLS on loopback with the fixture certificates) and the dashboard:
+
+```bash
+docker build -f Dockerfile.single -t forensic:single .
+docker run -p 8000:8000 forensic:single
+# dashboard  http://localhost:8000/
+# API        http://localhost:8000/api (docs at /docs)
+# testbeds   http://localhost:8000/testbed/{onion,clearnet}/...
+```
+
+See `render/README.md` for one-command deployment to Render (free tier uses
+this single-container mode).
 
 ## Quickstart (local, no Docker)
 

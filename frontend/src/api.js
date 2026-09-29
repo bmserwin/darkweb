@@ -1,4 +1,11 @@
-const BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
+// API base resolution:
+//   * VITE_API_BASE_URL build arg wins (4-container compose sets it),
+//   * production single-container builds serve the dashboard from the same
+//     origin as the API, so the relative "/api" is correct,
+//   * bare `npm run dev` falls back to the local backend port.
+const BASE =
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.PROD ? '/api' : 'http://localhost:8000/api')
 
 async function request(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {
