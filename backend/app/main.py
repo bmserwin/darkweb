@@ -8,6 +8,7 @@ from collections.abc import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from .api import endpoints
 from .config import settings
@@ -51,6 +52,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Graph payloads and ledger dumps are JSON-heavy and compress ~5:1; the
+# dashboard bundle is static and hashed, so one gzip pass pays for itself
+# immediately on every load.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 app.include_router(endpoints.router, prefix="/api")
 

@@ -156,6 +156,18 @@ def _mount_extras() -> None:
     dist = DASHBOARD_DIST
     if (dist / "index.html").is_file():
         app.mount("/", StaticFiles(directory=str(dist), html=True), name="dashboard")
+
+        # Vite emits content-hashed asset filenames, so they are safe to cache
+        # hard; index.html must stay revalidatable so deploys propagate.
+        @app.middleware("http")
+        async def _asset_cache_headers(request, call_next):  # noqa: ANN001
+            response = await call_next(request)
+            path = request.url.path
+            if path.startswith("/assets/"):
+                response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            elif path == "/" or path.endswith(".html"):
+                response.headers["Cache-Control"] = "no-cache"
+            return response
     else:
 
         @app.get("/", include_in_schema=False)
