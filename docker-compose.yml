@@ -13,6 +13,9 @@ services:
       FORENSIC_ALLOW_NETWORK_PROBES: "true"
     volumes:
       - ./backend/data:/app/data
+      # Fixture CA bundle: the infra prober verifies TLS against shared.crt
+      # instead of ever disabling certificate verification.
+      - ./simulation/certs:/app/certs:ro
     depends_on:
       - mock-onion
       - mock-clearnet
@@ -35,9 +38,17 @@ services:
     environment:
       MOCK_ONION_DOMAIN: vmijjgu6ydy75cxmbj5p2ey42d7wsab6u4plz5m2kza3xkgqbnrsfktj.onion
       MOCK_ONION_INTERNAL_IP: 10.13.37.41
-    command: ["uvicorn", "mock_onion_server:app", "--host", "0.0.0.0", "--port", "8080"]
+    # Module entrypoint serves BOTH listeners: HTTP 8080 and TLS 8443. A bare
+    # uvicorn command would bind plain HTTP only and leave the TLS ports dead.
+    command: ["python", "mock_onion_server.py"]
     volumes:
       - ./simulation/certs:/app/certs:ro
+    networks:
+      default:
+        aliases:
+          # Lets the infra prober resolve the simulated onion by name inside
+          # the compose network, so SNI and certificate name match on dial.
+          - vmijjgu6ydy75cxmbj5p2ey42d7wsab6u4plz5m2kza3xkgqbnrsfktj.onion
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/healthz', timeout=3).status==200 else 1)"]
       interval: 10s
@@ -57,9 +68,13 @@ services:
       MOCK_SERVER_BANNER: Apache/2.4.41 (Ubuntu) OpenSSL/3.0.2
       MOCK_HIDDEN_SERVICE_IP: 10.13.37.41
       MOCK_HIDDEN_SERVICE_VHOST: hs2.northgate-hosting.example
-    command: ["uvicorn", "mock_clearnet_server:app", "--host", "0.0.0.0", "--port", "8081"]
+    command: ["python", "mock_clearnet_server.py"]
     volumes:
       - ./simulation/certs:/app/certs:ro
+    networks:
+      default:
+        aliases:
+          - staging.northgate-hosting.example
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8081/healthz', timeout=3).status==200 else 1)"]
       interval: 10s
